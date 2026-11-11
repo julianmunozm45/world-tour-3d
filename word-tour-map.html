@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vuelta al Mundo 3D - Itinerario Diciembre 2026</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Three.js and Globe.gl CDN (No API Key Required) -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/globe.gl@2.27.2/dist/globe.gl.min.js"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+      background-color: #030712;
+    }
+
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Globe Label / Tooltip Styling */
+    .scene-tooltip {
+      font-family: 'Plus Jakarta Sans', sans-serif !important;
+      background: rgba(15, 23, 42, 0.95) !important;
+      border: 1px solid #334155 !important;
+      border-radius: 0.75rem !important;
+      padding: 8px 12px !important;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7) !important;
+      color: #f8fafc !important;
+      font-size: 13px !important;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col relative select-none">
+
+  <!-- Top Navigation & Control Bar -->
+  <header class="absolute top-0 left-0 right-0 z-20 px-4 py-3 bg-gradient-to-b from-slate-950/90 via-slate-950/60 to-transparent backdrop-blur-md flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/50">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+        <i class="fa-solid fa-earth-americas text-xl animate-pulse"></i>
+      </div>
+      <div>
+        <h1 class="font-extrabold text-base md:text-lg leading-tight text-white flex items-center gap-2">
+          Vuelta al Mundo <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">360° Globe 3D</span>
+        </h1>
+        <p class="text-xs text-slate-400">Itinerario Completo: 5 Dic – 23 Dic, 2026</p>
+      </div>
+    </div>
+
+    <!-- Filter View Tabs -->
+    <div class="flex bg-slate-900/90 p-1 rounded-xl border border-slate-800/80 text-xs font-semibold overflow-x-auto max-w-full">
+      <button onclick="setGlobeView('global')" id="tab-global" class="px-3 py-1.5 rounded-lg transition-all text-white bg-blue-600 shadow flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-globe"></i> <span>Ruta Global 3D</span>
+      </button>
+      <button onclick="setGlobeView('miami')" id="tab-miami" class="px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-sun"></i> <span>Miami</span>
+      </button>
+      <button onclick="setGlobeView('hanoi')" id="tab-hanoi" class="px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-mountain"></i> <span>Hanói & Tam Cốc</span>
+      </button>
+      <button onclick="setGlobeView('danang')" id="tab-danang" class="px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-bridge"></i> <span>Hội An & Đà Nẵng</span>
+      </button>
+      <button onclick="setGlobeView('saigon')" id="tab-saigon" class="px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-city"></i> <span>Ho Chi Minh</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 3D Globe Container -->
+  <div id="globeViz" class="w-full h-full absolute inset-0 z-0 bg-slate-950"></div>
+
+  <!-- Floating 3D Controls Overlay (Right Side) -->
+  <div class="absolute top-20 right-4 z-20 flex flex-col gap-2">
+    <button onclick="toggleAutoRotate()" id="btn-autorotate" class="w-10 h-10 rounded-xl bg-slate-900/80 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800 backdrop-blur shadow-lg flex items-center justify-center transition" title="Auto-Rotación 3D">
+      <i class="fa-solid fa-rotate text-sm" id="icon-rotate"></i>
+    </button>
+    <button onclick="resetCamera()" class="w-10 h-10 rounded-xl bg-slate-900/80 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800 backdrop-blur shadow-lg flex items-center justify-center transition" title="Reiniciar Vista">
+      <i class="fa-solid fa-compass text-sm"></i>
+    </button>
+  </div>
+
+  <!-- Floating Information Drawer (Left Side) -->
+  <aside id="sidebar" class="absolute top-20 left-4 bottom-6 w-80 md:w-96 bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 flex flex-col z-10 shadow-2xl transition-all duration-300">
+    
+    <!-- Header of Sidebar -->
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <h2 id="panel-title" class="font-extrabold text-sm text-slate-100 flex items-center gap-2">
+        <i class="fa-solid fa-plane-departure text-blue-400"></i> Circunnavegación Global 3D
+      </h2>
+    </div>
+
+    <!-- Scrollable Itinerary List -->
+    <div id="itinerary-content" class="flex-1 overflow-y-auto my-3 pr-1 space-y-3 custom-scrollbar text-xs">
+      <!-- Dynamic cards rendered by JS -->
+    </div>
+
+    <!-- Stats & Legend Footer -->
+    <div class="pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-2">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="bg-slate-950/70 border border-slate-800 p-2 rounded-xl">
+          <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Distancia Vuelos</span>
+          <p class="text-blue-400 font-extrabold text-xs mt-0.5">~37.500 km</p>
+        </div>
+        <div class="bg-slate-950/70 border border-slate-800 p-2 rounded-xl">
+          <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Línea de Fecha</span>
+          <p class="text-emerald-400 font-extrabold text-xs mt-0.5">Cruzada (Pacífico)</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-between text-[10px] pt-1">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span> Vuelos Ida</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span> Vuelos Regreso</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Puntos Clave</span>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    let world;
+    let autoRotate = true;
+
+    // --- Master Data Coordinates & Details ---
+    const GLOBAL_FLIGHTS = [
+      // Outbound (Eastbound via Atlantic/Europe)
+      { from: "Medellín (MDE)", startLat: 6.1645, startLng: -75.4231, endLat: 9.0714, endLng: -79.3835, color: "#3b82f6", stroke: 1.5, strokeAlt: 0.15 },
+      { from: "Panamá (PTY)", startLat: 9.0714, startLng: -79.3835, endLat: 25.7959, endLng: -80.2870, color: "#3b82f6", stroke: 1.5, strokeAlt: 0.15 },
+      { from: "Miami (MIA)", startLat: 25.7959, startLng: -80.2870, endLat: 41.2753, endLng: 28.7519, color: "#3b82f6", stroke: 2.5, strokeAlt: 0.3 },
+      { from: "Estambul (IST)", startLat: 41.2753, startLng: 28.7519, endLat: 21.2212, endLng: 105.8072, color: "#3b82f6", stroke: 2.5, strokeAlt: 0.25 },
+      
+      // Internal Vietnam Leg
+      { from: "Hanói (HAN)", startLat: 21.2212, startLng: 105.8072, endLat: 16.0439, endLng: 108.1994, color: "#6366f1", stroke: 1.5, strokeAlt: 0.1 },
+      { from: "Đà Nẵng (DAD)", startLat: 16.0439, startLng: 108.1994, endLat: 10.8188, endLng: 106.6519, color: "#6366f1", stroke: 1.5, strokeAlt: 0.1 },
+      
+      // Inbound Transpacific Return (Eastbound across Pacific/Date Line)
+      { from: "Ho Chi Minh (SGN)", startLat: 10.8188, startLng: 106.6519, endLat: 37.4602, endLng: 126.4407, color: "#10b981", stroke: 2.0, strokeAlt: 0.15 },
+      { from: "Seúl (ICN)", startLat: 37.4602, startLng: 126.4407, endLat: 33.9416, endLng: -118.4085, color: "#10b981", stroke: 3.0, strokeAlt: 0.4 }, // Transpacific
+      { from: "Los Ángeles (LAX)", startLat: 33.9416, startLng: -118.4085, endLat: 20.5218, endLng: -103.3112, color: "#10b981", stroke: 1.5, strokeAlt: 0.15 },
+      { from: "Guadalajara (GDL)", startLat: 20.5218, startLng: -103.3112, endLat: 6.1645, endLng: -75.4231, color: "#10b981", stroke: 1.5, strokeAlt: 0.15 }
+    ].filter(d => 
+      !isNaN(d.startLat) && !isNaN(d.startLng) && 
+      !isNaN(d.endLat) && !isNaN(d.endLng)
+    );
+
+    const POINTS_DATA = [
+      // Major Air Hubs
+      { lat: 6.1645, lng: -75.4231, name: "Medellín (MDE)", category: "airport", desc: "Origen y Destino Final de la Vuelta al Mundo", label: "Medellín" },
+      { lat: 25.7959, lng: -80.2870, name: "Miami (MIA)", category: "airport", desc: "Escala principal (Dic 5-8)", label: "Miami" },
+      { lat: 41.2753, lng: 28.7519, name: "Istanbul (IST)", category: "airport", desc: "Escala transcontinental", label: "Istanbul" },
+      { lat: 21.2212, lng: 105.8072, name: "Hanói (HAN)", category: "airport", desc: "Llegada a Vietnam (Dic 10, 15:25)", label: "Hanoi" },
+      { lat: 16.0439, lng: 108.1994, name: "Đà Nẵng (DAD)", category: "airport", desc: "Vuelo a SGN el Dic 19 (10:10 a.m.)", label: "Da Nang" },
+      { lat: 10.8188, lng: 106.6519, name: "Ho Chi Minh (SGN)", category: "airport", desc: "Salida Transpacífica (Dic 22)", label: "Saigon" },
+      { lat: 37.4602, lng: 126.4407, name: "Seoul (ICN)", category: "airport", desc: "Conexión Pacífico", label: "Seoul" },
+      { lat: 33.9416, lng: -118.4085, name: "Los Angeles (LAX)", category: "airport", desc: "Escala California", label: "Los Angeles" },
+      { lat: 20.5218, lng: -103.3112, name: "Guadalajara (GDL)", category: "airport", desc: "Escala final a MDE", label: "Guadalajara" },
+
+      // Miami Spots
+      { lat: 25.8042, lng: -80.1989, name: "Sojourner's Studio Wynwood", category: "hotel", desc: "Dic 5–6: Wynwood Art District", label: "Wynwood" },
+      { lat: 25.7654, lng: -80.2223, name: "El Jardin Inn (Little Havana)", category: "hotel", desc: "Dic 6–8: Calle Ocho y gastronomía", label: "Little Havana" },
+
+      // Hanoi & Ninh Binh Spots
+      { lat: 21.0336, lng: 105.8500, name: "Old Quarter Charm Hotel", category: "hotel", desc: "Dic 10–12: Barrio Antiguo de Hanói", label: "Hanói" },
+      { lat: 21.0285, lng: 105.8428, name: "Train Street", category: "spot", desc: "Visita matutina previa a Ninh Binh", label: "Train Street" },
+      { lat: 20.2163, lng: 105.9372, name: "Tam Coc Central Bungalow", category: "hotel", desc: "Dic 12–14: Alquiler moto sin estafas en el hotel", label: "Tam Cốc" },
+      { lat: 20.2506, lng: 105.9038, name: "Tràng An", category: "spot", desc: "Navegación en barca de bambú sin tour", label: "Tràng An" },
+      { lat: 20.2314, lng: 105.9419, name: "Cueva Múa (Hang Múa)", category: "spot", desc: "Mirador panorámico de las montañas", label: "Hang Múa" },
+
+      // Hoi An & Da Nang Spots
+      { lat: 15.8794, lng: 108.3242, name: "Cozy Savvy Hoi An", category: "hotel", desc: "Dic 14–18: Recorridos libres en bicicleta", label: "Hội An" },
+      { lat: 15.9126, lng: 108.3377, name: "Playa An Bang", category: "spot", desc: "Playa y relajación frente al mar", label: "An Bàng" },
+      { lat: 16.0544, lng: 108.2372, name: "La Maison Des Délices", category: "hotel", desc: "Dic 18–19: Hospedaje en Đà Nẵng", label: "Đà Nẵng" },
+      { lat: 16.0042, lng: 108.2633, name: "Montañas de Mármol", category: "spot", desc: "Parada estratégica de camino al hotel", label: "Marble Mts" },
+      { lat: 16.0601, lng: 108.2435, name: "Playa My Khe", category: "spot", desc: "Paseo costero y almuerzo de mariscos", label: "My Khe Beach" },
+      { lat: 16.0610, lng: 108.2272, name: "Puente del Dragón & Mercado Son Tra", category: "spot", desc: "Paseo nocturno e iluminación LED", label: "Dragon Bridge" },
+
+      // Saigon Spots
+      { lat: 10.7675, lng: 106.6908, name: "The Hammock Hotel Saigon Alley", category: "hotel", desc: "Dic 19–22: Distrito 1, caminable a punto de encuentro", label: "Saigón" },
+      { lat: 11.3789, lng: 106.1711, name: "Black Virgin Mountain & Cu Chi Tunnels", category: "spot", desc: "Excursión agendada para Dic 20 (Salida 7:00 AM)", label: "Tour Dic 20" }
+    ];
+
+    // --- Initialize Globe.gl Scene ---
+    function initGlobe() {
+      const elem = document.getElementById('globeViz');
+      
+      world = Globe()(elem)
+        .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
+        .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+        .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+        
+        // Flight Arcs with Validated Keys
+        .arcsData(GLOBAL_FLIGHTS)
+        .arcStartLat('startLat')
+        .arcStartLng('startLng')
+        .arcEndLat('endLat')
+        .arcEndLng('endLng')
+        .arcColor('color')
+        .arcDashLength(0.4)
+        .arcDashGap(0.2)
+        .arcDashAnimateTime(2000)
+        .arcStroke('stroke')
+        .arcAltitude(d => d.strokeAlt || 0.2)
+        
+        // Location Markers / Rings
+        .pointsData(POINTS_DATA)
+        .pointColor(d => d.category === 'airport' ? '#3b82f6' : d.category === 'hotel' ? '#f59e0b' : '#f43f5e')
+        .pointAltitude(0.02)
+        .pointRadius(0.5)
+        .pointLabel(d => `
+          <div class="scene-tooltip">
+            <div class="font-bold flex items-center gap-1.5 text-white">
+              <i class="fa-solid ${d.category === 'airport' ? 'fa-plane' : d.category === 'hotel' ? 'fa-bed' : 'fa-location-dot'}"></i>
+              ${d.name}
+            </div>
+            <div class="text-slate-300 text-xs mt-1">${d.desc}</div>
+          </div>
+        `)
+        
+        // Html Labels for persistent names on 3D globe (Only Cities filtered)
+        .htmlElementsData(POINTS_DATA.filter(d => d.category === 'airport'))
+        .htmlElement(d => {
+          const el = document.createElement('div');
+          
+          // Smart offset positioning based on city label to prevent overlapping
+          let offsetY = -15;
+          let offsetX = 0;
+
+          if (d.label === 'Medellín') { offsetY = 10; offsetX = -20; }
+          else if (d.label === 'Miami') { offsetY = -25; offsetX = -10; }
+          else if (d.label === 'Hanoi') { offsetY = -20; offsetX = 10; }
+          else if (d.label === 'Da Nang') { offsetY = 5; offsetX = 20; }
+          else if (d.label === 'Saigon') { offsetY = 15; offsetX = 10; }
+          else if (d.label === 'Istanbul') { offsetY = -20; offsetX = -10; }
+          else if (d.label === 'Seoul') { offsetY = -20; offsetX = -10; }
+          else if (d.label === 'Los Angeles') { offsetY = -20; offsetX = -15; }
+          else if (d.label === 'Guadalajara') { offsetY = 15; offsetX = 15; }
+
+          el.innerHTML = `
+            <div style="transform: translate(${offsetX}px, ${offsetY}px);" class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border-blue-400 bg-blue-950/90 border shadow-xl backdrop-blur-md transition-all">
+              <i class="fa-solid fa-location-dot text-[9px]" style="color: #ffffff !important;"></i>
+              <span class="whitespace-nowrap tracking-wide" style="color: #ffffff !important; text-shadow: 0px 1px 3px rgba(0,0,0,0.9);">${d.label}</span>
+            </div>
+          `;
+          el.style.pointerEvents = 'none';
+          return el;
+        });
+
+      // Orbit Controls & Camera Setup
+      world.controls().autoRotate = autoRotate;
+      world.controls().autoRotateSpeed = 0.8;
+      world.pointOfView({ lat: 20, lng: 10, altitude: 2.2 }, 1000);
+
+      // Render Initial Global View Sidebar
+      setGlobeView('global');
+    }
+
+    // --- Dynamic Globe Camera Views & Sidebar Content ---
+    function setGlobeView(viewMode) {
+      if (!world) return;
+
+      const titleEl = document.getElementById('panel-title');
+      const contentEl = document.getElementById('itinerary-content');
+
+      // Reset Tab Styling
+      ['global', 'miami', 'hanoi', 'danang', 'saigon'].forEach(v => {
+        const btn = document.getElementById(`tab-${v}`);
+        if (btn) {
+          if (v === viewMode) {
+            btn.className = "px-3 py-1.5 rounded-lg transition-all text-white bg-blue-600 shadow flex items-center gap-1.5 whitespace-nowrap font-bold";
+          } else {
+            btn.className = "px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap";
+          }
+        }
+      });
+
+      if (viewMode === 'global') {
+        world.pointOfView({ lat: 20, lng: 10, altitude: 2.3 }, 1500);
+        titleEl.innerHTML = `<i class="fa-solid fa-plane-departure text-blue-400"></i> Circunnavegación Global 3D`;
+        contentEl.innerHTML = `
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-blue-400 font-bold flex items-center gap-1.5"><i class="fa-solid fa-plane"></i> Tramo Ida (Vía Atlántico)</span>
+            <p class="text-slate-300">Medellín (MDE) ➔ Panamá (PTY) ➔ Miami (MIA) ➔ Estambul (IST) ➔ Hanói (HAN)</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-indigo-400 font-bold flex items-center gap-1.5"><i class="fa-solid fa-route"></i> Tramo Interno Vietnam</span>
+            <p class="text-slate-300">Hanói ➔ Tam Cốc ➔ Hội An ➔ Đà Nẵng ➔ Ho Chi Minh</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-emerald-400 font-bold flex items-center gap-1.5"><i class="fa-solid fa-globe"></i> Regreso (Cruce del Pacífico)</span>
+            <p class="text-slate-300">Ho Chi Minh (SGN) ➔ Seúl (ICN) ➔ Los Ángeles (LAX) ➔ Guadalajara (GDL) ➔ MDE</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-blue-950/40 border border-blue-900/50 text-blue-200">
+            <i class="fa-solid fa-circle-info mr-1"></i> <strong>Línea Internacional de Fecha:</strong> Cruzada el 22 de Diciembre en el vuelo ICN ➔ LAX (11h 05m).
+          </div>
+        `;
+      } else if (viewMode === 'miami') {
+        world.pointOfView({ lat: 25.78, lng: -80.24, altitude: 0.25 }, 1500);
+        titleEl.innerHTML = `<i class="fa-solid fa-sun text-amber-400"></i> Leg 1: Miami (Dic 5–8)`;
+        contentEl.innerHTML = `
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-amber-400 font-bold">Dic 5 - 6: Wynwood</span>
+            <p class="text-slate-300">Sojourner's Studio Near Wynwood. Recorrido a pie por murales y galerías de arte.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-amber-400 font-bold">Dic 6 - 8: Little Havana</span>
+            <p class="text-slate-300">El Jardin Inn. Gastronomía local, Calle Ocho. Vuelo a Hanói el Dic 8 a las 22:30.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-900/40 text-emerald-300">
+            <i class="fa-solid fa-taxi mr-1"></i> <strong>Movilidad:</strong> Usar Uber / Lyft para evitar altos costos de parking y seguros de alquiler.
+          </div>
+        `;
+      } else if (viewMode === 'hanoi') {
+        world.pointOfView({ lat: 20.6, lng: 105.85, altitude: 0.35 }, 1500);
+        titleEl.innerHTML = `<i class="fa-solid fa-mountain text-rose-400"></i> Leg 2: Hanói & Tam Cốc`;
+        contentEl.innerHTML = `
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-rose-400 font-bold">Hanói (Dic 10–12)</span>
+            <p class="text-slate-300">Old Quarter Charm Hotel. Marionetas de Agua, Tran Quoc Pagoda, Train Street.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-rose-400 font-bold">Ninh Bình / Tam Cốc (Dic 12–14)</span>
+            <p class="text-slate-300">Tam Coc Central Bungalow. Moto del hotel sin estafas, paseo en barca por Tràng An y mirador de Cueva Múa.</p>
+          </div>
+        `;
+      } else if (viewMode === 'danang') {
+        world.pointOfView({ lat: 15.98, lng: 108.28, altitude: 0.3 }, 1500);
+        titleEl.innerHTML = `<i class="fa-solid fa-bridge text-indigo-400"></i> Leg 3: Hội An & Đà Nẵng`;
+        contentEl.innerHTML = `
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-indigo-400 font-bold">Hội An (Dic 14–18)</span>
+            <p class="text-slate-300">Cozy Savvy Hoi An. Bicicleta por Old Town, Tra Que Vegetable Village y An Bang Beach.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-indigo-400 font-bold">Đà Nẵng (Dic 18–19)</span>
+            <p class="text-slate-300">La Maison Des Délices. Parada de camino en Montañas de Mármol, Playa My Khe, Puente del Dragón y Mercado Son Tra. Vuelo a SGN el Dic 19 a las 10:10 a.m.</p>
+          </div>
+        `;
+      } else if (viewMode === 'saigon') {
+        world.pointOfView({ lat: 11.0, lng: 106.5, altitude: 0.4 }, 1500);
+        titleEl.innerHTML = `<i class="fa-solid fa-city text-emerald-400"></i> Leg 4: Ho Chi Minh (Saigón)`;
+        contentEl.innerHTML = `
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-emerald-400 font-bold">Ho Chi Minh (Dic 19–22)</span>
+            <p class="text-slate-300">The Hammock Hotel Saigon Alley (Distrito 1). Caminable al punto de encuentro en Bui Vien.</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+            <span class="text-emerald-400 font-bold">Excursión Agendada (Dic 20)</span>
+            <p class="text-slate-300">Salida 07:00 a.m. a Black Virgin Mountain, Templo Cao Dai y Túneles de Cu Chi.</p>
+          </div>
+        `;
+      }
+    }
+
+    // Toggle Auto-Rotation
+    function toggleAutoRotate() {
+      if (!world) return;
+      autoRotate = !autoRotate;
+      world.controls().autoRotate = autoRotate;
+
+      const icon = document.getElementById('icon-rotate');
+      const btn = document.getElementById('btn-autorotate');
+      if (autoRotate) {
+        icon.className = "fa-solid fa-rotate text-sm text-blue-400 animate-spin";
+        btn.classList.add("border-blue-500/50");
+      } else {
+        icon.className = "fa-solid fa-pause text-sm text-slate-400";
+        btn.classList.remove("border-blue-500/50");
+      }
+    }
+
+    // Reset Camera Position
+    function resetCamera() {
+      setGlobeView('global');
+    }
+
+    // Initialize Globe on Window Load
+    window.onload = function() {
+      initGlobe();
+    };
+  </script>
+</body>
+</html>
